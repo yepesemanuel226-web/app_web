@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card } from '../../components/ui/Card';
+import { Card } from '../../components/ui/card';
 import { useAuth } from '../../context/AuthContext';
 import { User, Mail, Key, BookOpen, Phone, MapPin, Edit2, Save, X, Home } from 'lucide-react';
 import { toast } from 'sonner';
