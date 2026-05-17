@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
-import { Search, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, X, ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../../../lib/supabase';
 
 const ITEMS_PER_PAGE = 10;
 
 export function LoansManagement() {
+  const navigate = useNavigate();
   const [loans, setLoans] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
@@ -73,7 +75,7 @@ export function LoansManagement() {
     fetchLoans();
   };
 
-  const loanTypeLabel = (type: string) => ({ express: 'Express', weekly: 'Semanal', monthly: 'Mensual' }[type] || type);
+  const loanTypeLabel = (type: string) => ({ express: 'Diario', weekly: 'Semanal', monthly: 'Mensual' }[type] || type);
 
   return (
     <div className="space-y-6">
@@ -131,13 +133,26 @@ export function LoansManagement() {
                          <Badge variant="neutral">Devuelto</Badge>}
                       </td>
                       <td className="py-3 px-4">
-                        {loan.mora_amount > 0 ? <span className="text-[#D32F2F] font-bold">${loan.mora_amount.toLocaleString('es-CO')}</span> : <span className="text-gray-400">—</span>}
+                        {loan.mora_amount > 0
+                          ? <span className="text-[#D32F2F] font-bold">${loan.mora_amount.toLocaleString('es-CO')}</span>
+                          : <span className="text-gray-400">—</span>}
                       </td>
                       <td className="py-3 px-4">
-                        {(loan.status === 'active' || loan.status === 'overdue') && (
+                        {/* Activos: se pueden devolver aquí directamente */}
+                        {loan.status === 'active' && (
                           <button onClick={() => setReturnModal(loan)}
-                            className="text-sm bg-[#1A3A5C] text-white px-3 py-1 rounded-lg hover:bg-[#2a4a6c]">
+                            className="text-sm bg-[#1A3A5C] text-white px-3 py-1.5 rounded-lg hover:bg-[#2a4a6c] transition-colors">
                             Registrar devolución
+                          </button>
+                        )}
+                        {/* Vencidos: redirigir a Devoluciones y mora para cobrar primero */}
+                        {loan.status === 'overdue' && (
+                          <button
+                            onClick={() => navigate('/admin/returns')}
+                            className="flex items-center gap-1.5 text-sm bg-red-50 text-[#D32F2F] border border-red-200 px-3 py-1.5 rounded-lg hover:bg-red-100 transition-colors"
+                          >
+                            <AlertTriangle className="w-3.5 h-3.5" />
+                            Ir a Devoluciones y mora
                           </button>
                         )}
                       </td>
@@ -177,6 +192,7 @@ export function LoansManagement() {
         )}
       </Card>
 
+      {/* Modal confirmación devolución - solo para activos */}
       {returnModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
@@ -187,11 +203,6 @@ export function LoansManagement() {
             <p className="text-gray-700 mb-2"><strong>Usuario:</strong> {returnModal.user?.name}</p>
             <p className="text-gray-700 mb-2"><strong>Libro:</strong> {returnModal.book?.title}</p>
             <p className="text-gray-700 mb-4"><strong>Vencimiento:</strong> {returnModal.due_date}</p>
-            {returnModal.mora_amount > 0 && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
-                <p className="text-[#D32F2F] font-bold">Mora pendiente: ${returnModal.mora_amount.toLocaleString('es-CO')}</p>
-              </div>
-            )}
             <div className="flex gap-3">
               <button onClick={() => setReturnModal(null)} className="flex-1 border border-gray-300 py-2 rounded-lg hover:bg-gray-50">Cancelar</button>
               <button onClick={handleReturn} className="flex-1 bg-[#388E3C] text-white py-2 rounded-lg hover:bg-green-700">Confirmar devolución</button>
