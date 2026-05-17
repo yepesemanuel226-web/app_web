@@ -1,29 +1,45 @@
-import React, { useState } from 'react';
-import { Card } from '../../components/ui/card';
-import { Badge } from '../../components/ui/badge';
-import { Search, Filter, TrendingUp } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Card } from '../../components/ui/Card';
+import { Badge } from '../../components/ui/Badge';
+import { Search, TrendingUp, ShoppingCart, DollarSign } from 'lucide-react';
+import { supabase } from '../../../lib/supabase';
+import { toast } from 'sonner';
 
 export function SalesManagement() {
-  const [selectedFilter, setSelectedFilter] = useState('all');
+  const [sales, setSales] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState('all');
 
-  const sales = [
-    { id: 1, date: '2026-05-08', userName: 'Ana Martínez', email: 'ana@gmail.com', bookTitle: 'Don Quijote', quantity: 1, unitPrice: 38000, total: 38000 },
-    { id: 2, date: '2026-05-07', userName: 'María González', email: 'maria@gmail.com', bookTitle: 'El principito', quantity: 2, unitPrice: 25000, total: 50000 },
-    { id: 3, date: '2026-05-07', userName: 'Laura Ruiz', email: 'laura@outlook.com', bookTitle: 'Cien años de soledad', quantity: 1, unitPrice: 45000, total: 45000 },
-    { id: 4, date: '2026-05-06', userName: 'Pedro Gómez', email: 'pedro@gmail.com', bookTitle: 'La casa de los espíritus', quantity: 1, unitPrice: 42000, total: 42000 },
-    { id: 5, date: '2026-05-06', userName: 'Carlos López', email: 'carlos@yahoo.com', bookTitle: 'El principito', quantity: 3, unitPrice: 25000, total: 75000 },
-  ];
+  useEffect(() => { fetchSales(); }, []);
 
-  const totalRevenue = sales.reduce((sum, sale) => sum + sale.total, 0);
-  const totalTransactions = sales.length;
-  const averageTicket = totalRevenue / totalTransactions;
+  const fetchSales = async () => {
+    const { data } = await supabase
+      .from('sales')
+      .select('*, user:users(name, email), book:books(title)')
+      .order('sale_date', { ascending: false });
+    setSales(data || []);
+    setLoading(false);
+  };
 
-  const bookInventory = [
-    { bookTitle: 'Cien años de soledad', stock: 8, sold: 12 },
-    { bookTitle: 'El principito', stock: 12, sold: 28 },
-    { bookTitle: 'Don Quijote', stock: 6, sold: 9 },
-    { bookTitle: 'La casa de los espíritus', stock: 5, sold: 7 },
-  ];
+  const updateStatus = async (id: string, status: string) => {
+    await supabase.from('sales').update({ status }).eq('id', id);
+    toast.success('Estado actualizado');
+    fetchSales();
+  };
+
+  const filtered = sales.filter(s => {
+    const matchFilter = filter === 'all' || s.status === filter;
+    const matchSearch = !search ||
+      s.user?.name?.toLowerCase().includes(search.toLowerCase()) ||
+      s.book?.title?.toLowerCase().includes(search.toLowerCase());
+    return matchFilter && matchSearch;
+  });
+
+  const totalRevenue = sales.reduce((sum, s) => sum + (s.total_amount || 0), 0);
+  const totalQty = sales.reduce((sum, s) => sum + (s.quantity || 0), 0);
+
+  const paymentLabel = (m: string) => ({ efectivo: 'Efectivo', transferencia: 'Transferencia', tarjeta: 'Tarjeta' }[m] || m);
 
   return (
     <div className="space-y-6">
@@ -36,133 +52,91 @@ export function SalesManagement() {
         <Card>
           <div className="flex items-center justify-between mb-2">
             <p className="text-gray-600 text-sm">Ingresos totales</p>
-            <TrendingUp className="w-5 h-5 text-[#388E3C]" />
+            <DollarSign className="w-5 h-5 text-[#388E3C]" />
           </div>
-          <p className="text-3xl font-bold text-[#388E3C]">
-            ${totalRevenue.toLocaleString('es-CO')}
-          </p>
-          <p className="text-xs text-gray-500 mt-1">Todos los tiempos</p>
+          <p className="text-3xl font-bold text-[#388E3C]">${totalRevenue.toLocaleString('es-CO')}</p>
         </Card>
-
         <Card>
-          <p className="text-gray-600 text-sm mb-2">Total transacciones</p>
-          <p className="text-3xl font-bold text-[#1A3A5C]">{totalTransactions}</p>
-          <p className="text-xs text-gray-500 mt-1">Registradas en el sistema</p>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-gray-600 text-sm">Transacciones</p>
+            <ShoppingCart className="w-5 h-5 text-[#1A3A5C]" />
+          </div>
+          <p className="text-3xl font-bold text-[#1A3A5C]">{sales.length}</p>
         </Card>
-
         <Card>
-          <p className="text-gray-600 text-sm mb-2">Ticket promedio</p>
-          <p className="text-3xl font-bold text-[#E8A020]">
-            ${Math.round(averageTicket).toLocaleString('es-CO')}
-          </p>
-          <p className="text-xs text-gray-500 mt-1">Por transacción</p>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-gray-600 text-sm">Libros vendidos</p>
+            <TrendingUp className="w-5 h-5 text-[#E8A020]" />
+          </div>
+          <p className="text-3xl font-bold text-[#E8A020]">{totalQty}</p>
         </Card>
       </div>
 
       <Card>
-        <h2 className="text-xl font-bold text-[#1A3A5C] mb-4">Historial de transacciones</h2>
-
-        <div className="flex flex-wrap gap-4 mb-6">
-          <div className="flex-1 min-w-[300px] relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Buscar por usuario o libro..."
+        <div className="flex flex-wrap gap-3 mb-6">
+          <div className="flex-1 min-w-48 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input type="text" placeholder="Buscar por usuario o libro..."
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#E8A020]"
-            />
+              value={search} onChange={e => setSearch(e.target.value)} />
           </div>
-
-          <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-gray-600" />
-            <select
-              value={selectedFilter}
-              onChange={(e) => setSelectedFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#E8A020]"
-            >
-              <option value="all">Todas las fechas</option>
-              <option value="today">Hoy</option>
-              <option value="week">Esta semana</option>
-              <option value="month">Este mes</option>
-            </select>
+          <div className="flex gap-2">
+            {['all', 'pending', 'delivered', 'cancelled'].map(f => (
+              <button key={f} onClick={() => setFilter(f)}
+                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${filter === f ? 'bg-[#1A3A5C] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+                {f === 'all' ? 'Todas' : f === 'pending' ? 'Pendientes' : f === 'delivered' ? 'Entregadas' : 'Canceladas'}
+              </button>
+            ))}
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-gray-200">
-                <th className="text-left py-3 px-4 font-semibold text-[#1A3A5C]">Fecha</th>
-                <th className="text-left py-3 px-4 font-semibold text-[#1A3A5C]">Usuario</th>
-                <th className="text-left py-3 px-4 font-semibold text-[#1A3A5C]">Libro</th>
-                <th className="text-left py-3 px-4 font-semibold text-[#1A3A5C]">Cantidad</th>
-                <th className="text-left py-3 px-4 font-semibold text-[#1A3A5C]">Precio unit.</th>
-                <th className="text-left py-3 px-4 font-semibold text-[#1A3A5C]">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sales.map((sale) => (
-                <tr key={sale.id} className="border-b border-gray-100 hover:bg-gray-50">
-                  <td className="py-3 px-4 text-gray-700">{sale.date}</td>
-                  <td className="py-3 px-4">
-                    <p className="font-medium text-[#1A3A5C]">{sale.userName}</p>
-                    <p className="text-xs text-gray-500">{sale.email}</p>
-                  </td>
-                  <td className="py-3 px-4">
-                    <p className="font-medium text-[#1A3A5C]">{sale.bookTitle}</p>
-                  </td>
-                  <td className="py-3 px-4 text-gray-700">{sale.quantity}</td>
-                  <td className="py-3 px-4 text-gray-700">
-                    ${sale.unitPrice.toLocaleString('es-CO')}
-                  </td>
-                  <td className="py-3 px-4">
-                    <span className="font-semibold text-[#388E3C]">
-                      ${sale.total.toLocaleString('es-CO')}
-                    </span>
-                  </td>
+        {loading ? <p className="text-gray-500">Cargando...</p> : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-200 text-left">
+                  <th className="py-3 px-4 font-semibold text-[#1A3A5C]">Fecha</th>
+                  <th className="py-3 px-4 font-semibold text-[#1A3A5C]">Usuario</th>
+                  <th className="py-3 px-4 font-semibold text-[#1A3A5C]">Libro</th>
+                  <th className="py-3 px-4 font-semibold text-[#1A3A5C]">Cant.</th>
+                  <th className="py-3 px-4 font-semibold text-[#1A3A5C]">Total</th>
+                  <th className="py-3 px-4 font-semibold text-[#1A3A5C]">Pago</th>
+                  <th className="py-3 px-4 font-semibold text-[#1A3A5C]">Estado</th>
+                  <th className="py-3 px-4 font-semibold text-[#1A3A5C]">Acciones</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-
-      <Card>
-        <h2 className="text-xl font-bold text-[#1A3A5C] mb-4">Inventario de venta</h2>
-
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-gray-200">
-                <th className="text-left py-3 px-4 font-semibold text-[#1A3A5C]">Libro</th>
-                <th className="text-left py-3 px-4 font-semibold text-[#1A3A5C]">Stock actual</th>
-                <th className="text-left py-3 px-4 font-semibold text-[#1A3A5C]">Unidades vendidas</th>
-                <th className="text-left py-3 px-4 font-semibold text-[#1A3A5C]">Estado</th>
-              </tr>
-            </thead>
-            <tbody>
-              {bookInventory.map((item, index) => (
-                <tr key={index} className="border-b border-gray-100">
-                  <td className="py-3 px-4">
-                    <p className="font-medium text-[#1A3A5C]">{item.bookTitle}</p>
-                  </td>
-                  <td className="py-3 px-4">
-                    <span className={`font-semibold ${item.stock < 5 ? 'text-[#D32F2F]' : 'text-[#388E3C]'}`}>
-                      {item.stock}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 text-gray-700">{item.sold}</td>
-                  <td className="py-3 px-4">
-                    {item.stock < 5 ? (
-                      <Badge variant="warning">Stock bajo</Badge>
-                    ) : (
-                      <Badge variant="success">Disponible</Badge>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {filtered.map(sale => (
+                  <tr key={sale.id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <td className="py-3 px-4 text-gray-700">{sale.sale_date}</td>
+                    <td className="py-3 px-4">
+                      <p className="font-medium text-[#1A3A5C]">{sale.user?.name}</p>
+                      <p className="text-xs text-gray-500">{sale.user?.email}</p>
+                    </td>
+                    <td className="py-3 px-4 text-gray-700">{sale.book?.title}</td>
+                    <td className="py-3 px-4 text-gray-700">{sale.quantity}</td>
+                    <td className="py-3 px-4 font-bold text-[#388E3C]">${sale.total_amount?.toLocaleString('es-CO')}</td>
+                    <td className="py-3 px-4 text-gray-700">{paymentLabel(sale.payment_method)}</td>
+                    <td className="py-3 px-4">
+                      {sale.status === 'pending' ? <Badge variant="warning">Pendiente</Badge> :
+                       sale.status === 'delivered' ? <Badge variant="success">Entregado</Badge> :
+                       <Badge variant="danger">Cancelado</Badge>}
+                    </td>
+                    <td className="py-3 px-4">
+                      {sale.status === 'pending' && (
+                        <div className="flex gap-1">
+                          <button onClick={() => updateStatus(sale.id, 'delivered')} className="text-xs bg-[#388E3C] text-white px-2 py-1 rounded hover:bg-green-700">Entregar</button>
+                          <button onClick={() => updateStatus(sale.id, 'cancelled')} className="text-xs bg-[#D32F2F] text-white px-2 py-1 rounded hover:bg-red-700">Cancelar</button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {filtered.length === 0 && <p className="text-center text-gray-500 py-8">No hay ventas</p>}
+          </div>
+        )}
       </Card>
     </div>
   );

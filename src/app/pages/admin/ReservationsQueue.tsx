@@ -1,124 +1,131 @@
-import React from 'react';
-import { Card } from '../../components/ui/card';
-import { Badge } from '../../components/ui/badge';
-import { Button } from '../../components/ui/button';
-import { Users, Bell, XCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Card } from '../../components/ui/Card';
+import { Badge } from '../../components/ui/Badge';
+import { Bell, XCircle, Search } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '../../../lib/supabase';
 
 export function ReservationsQueue() {
-  const queues = [
-    {
-      bookId: 1,
-      bookTitle: 'El amor en los tiempos del cólera',
-      author: 'Gabriel García Márquez',
-      queue: [
-        { userId: 1, userName: 'Laura Ruiz', email: 'laura@outlook.com', reservedDate: '2026-05-07', position: 1 },
-        { userId: 2, userName: 'Pedro Gómez', email: 'pedro@gmail.com', reservedDate: '2026-05-08', position: 2 },
-      ]
-    },
-    {
-      bookId: 2,
-      bookTitle: 'La sombra del viento',
-      author: 'Carlos Ruiz Zafón',
-      queue: [
-        { userId: 3, userName: 'María González', email: 'maria@gmail.com', reservedDate: '2026-05-05', position: 1 },
-        { userId: 4, userName: 'Ana Martínez', email: 'ana@gmail.com', reservedDate: '2026-05-06', position: 2 },
-        { userId: 5, userName: 'Juan Pérez', email: 'juan@hotmail.com', reservedDate: '2026-05-07', position: 3 },
-      ]
-    },
-    {
-      bookId: 3,
-      bookTitle: 'Crónica de una muerte anunciada',
-      author: 'Gabriel García Márquez',
-      queue: [
-        { userId: 6, userName: 'Carlos López', email: 'carlos@yahoo.com', reservedDate: '2026-05-08', position: 1 },
-      ]
-    },
-  ];
+  const [reservations, setReservations] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
 
-  const handleNotifyNext = (bookTitle: string, userName: string) => {
-    toast.success(`Notificación enviada a ${userName} sobre "${bookTitle}"`);
+  useEffect(() => { fetchReservations(); }, []);
+
+  const fetchReservations = async () => {
+    const { data } = await supabase
+      .from('reservations')
+      .select('*, user:users(name, email), book:books(title, author, stock_loan)')
+      .in('status', ['waiting', 'available'])
+      .order('reserved_date');
+    setReservations(data || []);
+    setLoading(false);
   };
 
-  const handleRemoveFromQueue = (userName: string, bookTitle: string) => {
-    toast.info(`${userName} removido de la cola de "${bookTitle}"`);
+  const filtered = reservations.filter(r =>
+    !search ||
+    r.user?.name?.toLowerCase().includes(search.toLowerCase()) ||
+    r.book?.title?.toLowerCase().includes(search.toLowerCase())
+  );
+
+  // Agrupar por libro
+  const grouped = filtered.reduce((acc: any, r) => {
+    const key = r.book_id;
+    if (!acc[key]) acc[key] = { book: r.book, items: [] };
+    acc[key].items.push(r);
+    return acc;
+  }, {});
+
+  const handleNotify = async (reservation: any) => {
+    const { error } = await supabase
+      .from('reservations')
+      .update({ status: 'available', available_until: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0] })
+      .eq('id', reservation.id);
+
+    if (error) { toast.error('Error: ' + error.message); return; }
+
+    await supabase.from('notifications').insert([{
+      user_id: reservation.user_id,
+      type: 'success',
+      title: '¡Tu libro está disponible!',
+      message: `"${reservation.book?.title}" ya está disponible para recoger. Tienes 7 días para pasar a buscarlo.`,
+      is_read: false
+    }]);
+
+    toast.success(`Notificación enviada a ${reservation.user?.name}`);
+    fetchReservations();
+  };
+
+  const handleCancel = async (reservation: any) => {
+    await supabase.from('reservations').update({ status: 'cancelled' }).eq('id', reservation.id);
+    toast.success('Reserva cancelada');
+    fetchReservations();
   };
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-[#1A3A5C] mb-2">Cola de reservas</h1>
-        <p className="text-gray-600">Administra las listas de espera de los libros</p>
+        <p className="text-gray-600">Administra las reservas pendientes por libro</p>
       </div>
 
-      <div className="grid grid-cols-1 gap-6">
-        {queues.map((item) => (
-          <Card key={item.bookId}>
-            <div className="mb-4 pb-4 border-b border-gray-200">
-              <div className="flex items-start justify-between">
-                <div>
-                  <h2 className="text-xl font-bold text-[#1A3A5C] mb-1">{item.bookTitle}</h2>
-                  <p className="text-gray-600">{item.author}</p>
-                </div>
-                <Badge variant="info">
-                  <Users className="w-3 h-3 inline mr-1" />
-                  {item.queue.length} en cola
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+        <input type="text" placeholder="Buscar por usuario o libro..."
+          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#E8A020]"
+          value={search} onChange={e => setSearch(e.target.value)} />
+      </div>
+
+      {loading ? <p className="text-gray-500">Cargando...</p> :
+       Object.keys(grouped).length === 0 ? (
+        <Card className="text-center py-12">
+          <p className="text-gray-500">No hay reservas pendientes</p>
+        </Card>
+      ) : (
+        Object.values(grouped).map((group: any) => (
+          <Card key={group.book?.title}>
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-bold text-[#1A3A5C]">{group.book?.title}</h3>
+                <p className="text-gray-600 text-sm">{group.book?.author}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-500">{group.items.length} en cola</span>
+                <Badge variant={group.book?.stock_loan > 0 ? 'success' : 'danger'}>
+                  Stock: {group.book?.stock_loan}
                 </Badge>
               </div>
             </div>
-
-            <div className="space-y-3">
-              {item.queue.map((user) => (
-                <div
-                  key={user.userId}
-                  className={`border rounded-lg p-4 ${user.position === 1 ? 'border-[#E8A020] bg-[#FFF9EC]' : 'border-gray-200'}`}
-                >
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-4 flex-1">
-                      <div className="flex items-center justify-center w-10 h-10 bg-[#1A3A5C] text-white font-bold rounded-full">
-                        {user.position}
-                      </div>
-
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-[#1A3A5C]">{user.userName}</h3>
-                        <p className="text-sm text-gray-600">{user.email}</p>
-                        <p className="text-xs text-gray-500 mt-1">Reservado el {user.reservedDate}</p>
-                      </div>
+            <div className="space-y-2">
+              {group.items.sort((a: any, b: any) => a.queue_position - b.queue_position).map((r: any) => (
+                <div key={r.id} className={`flex items-center justify-between p-3 rounded-lg border ${r.status === 'available' ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
+                  <div className="flex items-center gap-3">
+                    <span className="w-7 h-7 bg-[#1A3A5C] text-white rounded-full flex items-center justify-center text-xs font-bold">
+                      {r.queue_position || '?'}
+                    </span>
+                    <div>
+                      <p className="font-medium text-[#1A3A5C]">{r.user?.name}</p>
+                      <p className="text-xs text-gray-500">{r.user?.email} · Reservado: {new Date(r.reserved_date).toLocaleDateString('es-CO')}</p>
                     </div>
-
-                    <div className="flex gap-2">
-                      {user.position === 1 && (
-                        <Button
-                          size="sm"
-                          onClick={() => handleNotifyNext(item.bookTitle, user.userName)}
-                        >
-                          <Bell className="w-4 h-4 mr-1" />
-                          Notificar
-                        </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRemoveFromQueue(user.userName, item.bookTitle)}
-                        className="text-[#D32F2F] hover:bg-red-50"
-                      >
-                        <XCircle className="w-4 h-4" />
-                      </Button>
-                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={r.status === 'available' ? 'success' : 'warning'}>
+                      {r.status === 'available' ? 'Disponible' : 'En espera'}
+                    </Badge>
+                    {r.status === 'waiting' && group.book?.stock_loan > 0 && (
+                      <button onClick={() => handleNotify(r)} className="flex items-center gap-1 text-xs bg-[#388E3C] text-white px-2 py-1 rounded-lg hover:bg-green-700">
+                        <Bell className="w-3 h-3" />Notificar
+                      </button>
+                    )}
+                    <button onClick={() => handleCancel(r)} className="text-[#D32F2F] hover:text-red-700">
+                      <XCircle className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
               ))}
             </div>
           </Card>
-        ))}
-      </div>
-
-      {queues.length === 0 && (
-        <Card className="text-center py-12">
-          <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-700 mb-2">No hay colas de reserva activas</h3>
-          <p className="text-gray-500">Las colas aparecerán aquí cuando los usuarios reserven libros</p>
-        </Card>
+        ))
       )}
     </div>
   );
