@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Card } from '../../components/ui/Card';
+import { Card } from '../../components/ui/card';
 import { BookOpen, AlertTriangle, ShoppingCart, Users, Clock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../../lib/supabase';

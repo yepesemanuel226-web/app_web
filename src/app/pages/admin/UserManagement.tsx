@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Card } from '../../components/ui/Card';
-import { Badge } from '../../components/ui/Badge';
+import { Card } from '../../components/ui/card';
+import { Badge } from '../../components/ui/badge';
 import { Search, Eye, Ban, CheckCircle, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../../../lib/supabase';
