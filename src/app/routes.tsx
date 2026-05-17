@@ -14,6 +14,7 @@ import { UserProfile } from './pages/user/UserProfile';
 
 import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { CatalogManagement } from './pages/admin/CatalogManagement';
+import { AdminBookForm } from './pages/admin/AdminBookForm';
 import { LoansManagement } from './pages/admin/LoansManagement';
 import { ReturnsMora } from './pages/admin/ReturnsMora';
 import { ReservationsQueue } from './pages/admin/ReservationsQueue';
@@ -43,6 +44,8 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <AdminDashboard /> },
       { path: 'catalog', element: <CatalogManagement /> },
+      { path: 'catalog/new', element: <AdminBookForm /> },
+      { path: 'catalog/edit/:bookId', element: <AdminBookForm /> },
       { path: 'loans', element: <LoansManagement /> },
       { path: 'returns', element: <ReturnsMora /> },
       { path: 'reservations', element: <ReservationsQueue /> },
