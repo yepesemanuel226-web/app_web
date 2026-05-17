@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Card } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
-import { Search, Settings, DollarSign, X } from 'lucide-react';
+import { Search, Settings, DollarSign, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../../../lib/supabase';
+
+const ITEMS_PER_PAGE = 10;
 
 export function ReturnsMora() {
   const [search, setSearch] = useState('');
@@ -13,11 +15,10 @@ export function ReturnsMora() {
   const [editingTariff, setEditingTariff] = useState(false);
   const [newTariff, setNewTariff] = useState(2000);
   const [returnModal, setReturnModal] = useState<any | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
-  useEffect(() => {
-    fetchOverdueLoans();
-    fetchMoraTariff();
-  }, []);
+  useEffect(() => { fetchOverdueLoans(); fetchMoraTariff(); }, []);
+  useEffect(() => { setCurrentPage(1); }, [search]);
 
   const fetchMoraTariff = async () => {
     const { data } = await supabase.from('mora_config').select('daily_rate').single();
@@ -36,9 +37,7 @@ export function ReturnsMora() {
 
   const handleSaveTariff = async () => {
     const { error } = await supabase.from('mora_config').update({ daily_rate: newTariff }).neq('id', '00000000-0000-0000-0000-000000000000');
-    if (error) {
-      await supabase.from('mora_config').insert([{ daily_rate: newTariff }]);
-    }
+    if (error) { await supabase.from('mora_config').insert([{ daily_rate: newTariff }]); }
     setMoraTariff(newTariff);
     setEditingTariff(false);
     toast.success('Tarifa actualizada exitosamente');
@@ -62,10 +61,7 @@ export function ReturnsMora() {
     fetchOverdueLoans();
   };
 
-  const daysOverdue = (dueDate: string) => {
-    const diff = Math.floor((Date.now() - new Date(dueDate).getTime()) / 86400000);
-    return Math.max(0, diff);
-  };
+  const daysOverdue = (dueDate: string) => Math.max(0, Math.floor((Date.now() - new Date(dueDate).getTime()) / 86400000));
 
   const filtered = overdueLoans.filter(l =>
     !search ||
@@ -74,7 +70,25 @@ export function ReturnsMora() {
     l.book?.title?.toLowerCase().includes(search.toLowerCase())
   );
 
+  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
+  const paginated = filtered.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
   const totalMora = overdueLoans.reduce((sum, l) => sum + (l.mora_amount || 0), 0);
+
+  const goToPage = (page: number) => { setCurrentPage(page); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+
+  const getPageNumbers = () => {
+    const pages: (number | '...')[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (currentPage > 3) pages.push('...');
+      for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) pages.push(i);
+      if (currentPage < totalPages - 2) pages.push('...');
+      pages.push(totalPages);
+    }
+    return pages;
+  };
 
   return (
     <div className="space-y-6">
@@ -123,42 +137,70 @@ export function ReturnsMora() {
         {loading ? <p className="text-gray-500">Cargando...</p> : filtered.length === 0 ? (
           <p className="text-center text-gray-500 py-8">No hay préstamos vencidos 🎉</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-200 text-left">
-                  <th className="py-3 px-4 font-semibold text-[#1A3A5C]">Usuario</th>
-                  <th className="py-3 px-4 font-semibold text-[#1A3A5C]">Libro</th>
-                  <th className="py-3 px-4 font-semibold text-[#1A3A5C]">Vencimiento</th>
-                  <th className="py-3 px-4 font-semibold text-[#1A3A5C]">Días vencido</th>
-                  <th className="py-3 px-4 font-semibold text-[#1A3A5C]">Mora</th>
-                  <th className="py-3 px-4 font-semibold text-[#1A3A5C]">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map(loan => (
-                  <tr key={loan.id} className="border-b border-gray-100 bg-red-50 hover:bg-red-100">
-                    <td className="py-3 px-4">
-                      <p className="font-medium text-[#1A3A5C]">{loan.user?.name}</p>
-                      <p className="text-xs text-gray-500">{loan.user?.email}</p>
-                    </td>
-                    <td className="py-3 px-4 text-gray-700">{loan.book?.title}</td>
-                    <td className="py-3 px-4 text-[#D32F2F] font-semibold">{loan.due_date}</td>
-                    <td className="py-3 px-4">
-                      <Badge variant="danger">{daysOverdue(loan.due_date)} días</Badge>
-                    </td>
-                    <td className="py-3 px-4 font-bold text-[#D32F2F]">${(loan.mora_amount || 0).toLocaleString('es-CO')}</td>
-                    <td className="py-3 px-4">
-                      <button onClick={() => setReturnModal(loan)}
-                        className="text-sm bg-[#1A3A5C] text-white px-3 py-1 rounded-lg hover:bg-[#2a4a6c]">
-                        Procesar devolución
-                      </button>
-                    </td>
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-200 text-left">
+                    <th className="py-3 px-4 font-semibold text-[#1A3A5C]">Usuario</th>
+                    <th className="py-3 px-4 font-semibold text-[#1A3A5C]">Libro</th>
+                    <th className="py-3 px-4 font-semibold text-[#1A3A5C]">Vencimiento</th>
+                    <th className="py-3 px-4 font-semibold text-[#1A3A5C]">Días vencido</th>
+                    <th className="py-3 px-4 font-semibold text-[#1A3A5C]">Mora</th>
+                    <th className="py-3 px-4 font-semibold text-[#1A3A5C]">Acciones</th>
                   </tr>
+                </thead>
+                <tbody>
+                  {paginated.map(loan => (
+                    <tr key={loan.id} className="border-b border-gray-100 bg-red-50 hover:bg-red-100">
+                      <td className="py-3 px-4">
+                        <p className="font-medium text-[#1A3A5C]">{loan.user?.name}</p>
+                        <p className="text-xs text-gray-500">{loan.user?.email}</p>
+                      </td>
+                      <td className="py-3 px-4 text-gray-700">{loan.book?.title}</td>
+                      <td className="py-3 px-4 text-[#D32F2F] font-semibold">{loan.due_date}</td>
+                      <td className="py-3 px-4">
+                        <Badge variant="danger">{daysOverdue(loan.due_date)} días</Badge>
+                      </td>
+                      <td className="py-3 px-4 font-bold text-[#D32F2F]">${(loan.mora_amount || 0).toLocaleString('es-CO')}</td>
+                      <td className="py-3 px-4">
+                        <button onClick={() => setReturnModal(loan)}
+                          className="text-sm bg-[#1A3A5C] text-white px-3 py-1 rounded-lg hover:bg-[#2a4a6c]">
+                          Procesar devolución
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-1 mt-6">
+                <button onClick={() => goToPage(Math.max(1, currentPage - 1))} disabled={currentPage === 1}
+                  className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed text-[#1A3A5C]">
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                {getPageNumbers().map((page, i) => (
+                  page === '...'
+                    ? <span key={`dots-${i}`} className="px-2 text-gray-400">...</span>
+                    : <button key={page} onClick={() => goToPage(page as number)}
+                        className={`w-9 h-9 rounded-lg text-sm font-medium transition-colors ${currentPage === page ? 'bg-[#1A3A5C] text-white' : 'hover:bg-gray-100 text-gray-700'}`}>
+                        {page}
+                      </button>
                 ))}
-              </tbody>
-            </table>
-          </div>
+                <button onClick={() => goToPage(Math.min(totalPages, currentPage + 1))} disabled={currentPage === totalPages}
+                  className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed text-[#1A3A5C]">
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              </div>
+            )}
+            {totalPages > 1 && (
+              <p className="text-center text-xs text-gray-400 mt-2">
+                Página {currentPage} de {totalPages} · {filtered.length} préstamos vencidos en total
+              </p>
+            )}
+          </>
         )}
       </Card>
 
