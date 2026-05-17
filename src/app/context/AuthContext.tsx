@@ -26,17 +26,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Derivar usuario SOLO de la sesión, sin consultar la tabla users
   const sessionToUser = (session: Session | null): User | null => {
     if (!session?.user) return null;
-
     const supaUser = session.user;
     const email = supaUser.email || '';
     const isAdmin = email.endsWith('@edu.co') || !!email.match(/@.*\.edu\./);
     const role: UserRole = isAdmin ? 'admin' : 'user';
     const name = supaUser.user_metadata?.name || email.split('@')[0] || 'Usuario';
-
     return { id: supaUser.id, email, name, role };
+  };
+
+  const updateLastLogin = async (userId: string) => {
+    await supabase
+      .from('users')
+      .update({ last_login: new Date().toISOString() })
+      .eq('id', userId);
   };
 
   useEffect(() => {
@@ -46,8 +50,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(sessionToUser(session));
+      const appUser = sessionToUser(session);
+      setUser(appUser);
       setLoading(false);
+
+      // Actualizar last_login cuando el usuario inicia sesión
+      if (_event === 'SIGNED_IN' && session?.user) {
+        updateLastLogin(session.user.id);
+      }
     });
 
     return () => subscription.unsubscribe();

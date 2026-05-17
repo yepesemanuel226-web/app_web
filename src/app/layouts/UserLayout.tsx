@@ -18,14 +18,13 @@ export function UserLayout() {
     { path: '/user/catalog', icon: Search, label: 'Catálogo' },
     { path: '/user/loans', icon: BookOpen, label: 'Mis préstamos' },
     { path: '/user/reservations', icon: Bookmark, label: 'Reservas' },
+    { path: '/user/purchases', icon: ShoppingCart, label: 'Mis compras' },
     { path: '/user/notifications', icon: Bell, label: 'Notificaciones' },
     { path: '/user/profile', icon: User, label: 'Mi perfil' },
   ];
 
   const isActive = (path: string) => {
-    if (path === '/user') {
-      return location.pathname === '/user';
-    }
+    if (path === '/user') return location.pathname === '/user';
     return location.pathname.startsWith(path);
   };
 
@@ -35,12 +34,9 @@ export function UserLayout() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-3">
-              {/* 🖼️ LOGO EN NAVBAR - AQUÍ VA LA IMAGEN */}
-              {/* TODO: <img src="/logo-sgb.png" alt="SGB" className="w-10 h-10" /> */}
               <div className="bg-[#1A3A5C] p-2 rounded-lg">
                 <BookOpen className="w-6 h-6 text-white" />
               </div>
-              {/* FIN LOGO 🖼️ */}
               <div>
                 <h1 className="text-xl font-bold text-[#1A3A5C]">SGB</h1>
                 <p className="text-xs text-gray-600">Sistema de Gestión Bibliotecaria</p>
@@ -48,7 +44,7 @@ export function UserLayout() {
             </div>
 
             <div className="flex items-center gap-6">
-              <div className="hidden md:flex items-center gap-6">
+              <div className="hidden md:flex items-center gap-2">
                 {navItems.map((item) => (
                   <Link
                     key={item.path}

@@ -8,7 +8,7 @@ import { Catalog } from './pages/user/Catalog';
 import { LoanRequest } from './pages/user/LoanRequest';
 import { MyLoans } from './pages/user/MyLoans';
 import { Reservations } from './pages/user/Reservations';
-import { Purchase } from './pages/user/Purchase';
+import { MyPurchases } from './pages/user/MyPurchases';
 import { Notifications } from './pages/user/Notifications';
 import { UserProfile } from './pages/user/UserProfile';
 
@@ -35,7 +35,7 @@ export const router = createBrowserRouter([
       { path: 'loan-request/:bookId', element: <LoanRequest /> },
       { path: 'loans', element: <MyLoans /> },
       { path: 'reservations', element: <Reservations /> },
-      { path: 'purchase/:bookId', element: <Purchase /> },
+      { path: 'purchases', element: <MyPurchases /> },
       { path: 'notifications', element: <Notifications /> },
       { path: 'profile', element: <UserProfile /> },
     ],
