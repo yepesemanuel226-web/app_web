@@ -23,7 +23,7 @@ export function UserLayout() {
 
   useEffect(() => {
     fetchUnreadCount();
-    setMenuOpen(false); // cerrar menú al cambiar de ruta
+    setMenuOpen(false);
   }, [location.pathname, user]);
 
   useEffect(() => {
@@ -35,6 +35,15 @@ export function UserLayout() {
       .subscribe();
     return () => { subscription.unsubscribe(); };
   }, [user]);
+
+  useEffect(() => {
+    if (menuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [menuOpen]);
 
   const handleLogout = () => { logout(); navigate('/'); };
 
@@ -94,7 +103,6 @@ export function UserLayout() {
 
             {/* Botón hamburguesa móvil */}
             <div className="flex items-center gap-3 md:hidden">
-              {/* Badge notificaciones visible en móvil */}
               <Link to="/user/notifications" className="relative">
                 <Bell className="w-6 h-6 text-gray-700" />
                 {unreadCount > 0 && (
@@ -110,48 +118,78 @@ export function UserLayout() {
             </div>
           </div>
         </div>
+      </nav>
 
-        {/* Menú móvil desplegable */}
-        {menuOpen && (
-          <div className="md:hidden border-t border-gray-200 bg-white shadow-lg">
-            <div className="px-4 py-3 space-y-1">
-              {/* Info usuario */}
-              <div className="flex items-center gap-3 px-3 py-3 mb-2 bg-gray-50 rounded-xl">
-                <div className="w-10 h-10 bg-[#1A3A5C] rounded-full flex items-center justify-center flex-shrink-0">
-                  <User className="w-5 h-5 text-white" />
-                </div>
-                <div className="min-w-0">
-                  <p className="font-semibold text-[#1A3A5C] truncate">{user?.name}</p>
-                  <p className="text-xs text-gray-500 truncate">{user?.email}</p>
-                </div>
-              </div>
+      {/* Overlay fondo negro */}
+      {menuOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
+          onClick={() => setMenuOpen(false)}
+        />
+      )}
 
-              {navItems.map((item) => (
-                <Link key={item.path} to={item.path}
-                  onClick={() => setMenuOpen(false)}
-                  className={`relative flex items-center gap-3 px-4 py-3 rounded-xl transition-colors font-medium ${
-                    isActive(item.path) ? 'bg-[#E8A020] text-white' : 'text-gray-700 hover:bg-gray-50'
-                  }`}>
-                  <item.icon className="w-5 h-5 flex-shrink-0" />
-                  <span>{item.label}</span>
-                  {item.badge && item.badge > 0 && (
-                    <span className="ml-auto bg-[#D32F2F] text-white text-xs font-bold rounded-full px-2 py-0.5">
-                      {item.badge > 9 ? '9+' : item.badge}
-                    </span>
-                  )}
-                </Link>
-              ))}
+      {/* Drawer lateral desde la derecha */}
+      <div
+        className={`fixed top-0 right-0 h-full w-72 bg-white z-50 shadow-2xl flex flex-col transform transition-transform duration-300 ease-in-out md:hidden ${
+          menuOpen ? 'translate-x-0' : 'translate-x-full'
+        }`}
+      >
+        {/* Header del drawer */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+          <div className="flex items-center gap-3">
+            <div className="bg-[#1A3A5C] p-2 rounded-lg">
+              <BookOpen className="w-5 h-5 text-white" />
+            </div>
+            <span className="font-bold text-[#1A3A5C] text-lg">SGB</span>
+          </div>
+          <button
+            onClick={() => setMenuOpen(false)}
+            className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
 
-              <div className="border-t border-gray-200 pt-2 mt-2">
-                <button onClick={handleLogout}
-                  className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-[#D32F2F] hover:bg-red-50 transition-colors font-medium">
-                  <LogOut className="w-5 h-5" />Cerrar sesión
-                </button>
-              </div>
+        {/* Info usuario */}
+        <div className="px-5 py-4 border-b border-gray-100 bg-gray-50">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-[#1A3A5C] rounded-full flex items-center justify-center flex-shrink-0">
+              <User className="w-5 h-5 text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="font-semibold text-[#1A3A5C] truncate">{user?.name}</p>
+              <p className="text-xs text-gray-500 truncate">{user?.email}</p>
             </div>
           </div>
-        )}
-      </nav>
+        </div>
+
+        {/* Nav items */}
+        <nav className="flex-1 px-4 py-3 space-y-1 overflow-y-auto">
+          {navItems.map((item) => (
+            <Link key={item.path} to={item.path}
+              onClick={() => setMenuOpen(false)}
+              className={`relative flex items-center gap-3 px-4 py-3 rounded-xl transition-colors font-medium ${
+                isActive(item.path) ? 'bg-[#E8A020] text-white' : 'text-gray-700 hover:bg-gray-50'
+              }`}>
+              <item.icon className="w-5 h-5 flex-shrink-0" />
+              <span>{item.label}</span>
+              {item.badge && item.badge > 0 && (
+                <span className="ml-auto bg-[#D32F2F] text-white text-xs font-bold rounded-full px-2 py-0.5">
+                  {item.badge > 9 ? '9+' : item.badge}
+                </span>
+              )}
+            </Link>
+          ))}
+        </nav>
+
+        {/* Logout */}
+        <div className="px-4 py-4 border-t border-gray-200">
+          <button onClick={handleLogout}
+            className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-[#D32F2F] hover:bg-red-50 transition-colors font-medium">
+            <LogOut className="w-5 h-5" />Cerrar sesión
+          </button>
+        </div>
+      </div>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <Outlet />
