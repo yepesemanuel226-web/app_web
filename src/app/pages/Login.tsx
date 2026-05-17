@@ -33,8 +33,8 @@ export function Login() {
                       email.endsWith('@edu.co.com') ||
                       email.match(/@.*\.edu\./);
 
+      setTimeout(() => toast.success('¡Bienvenido al SGB!'), 150);
       navigate(isAdmin ? '/admin' : '/user');
-      toast.success('¡Bienvenido al SGB!');
     } catch (error) {
       toast.error('Error al iniciar sesión');
     } finally {

@@ -136,8 +136,87 @@ export function Reports() {
     return Object.entries(months).map(([month, ingresos]) => ({ month, ingresos }));
   })();
 
+  // CSV con UTF-8 + BOM y separador punto y coma (estandar Excel latinoamerica)
+  const downloadCSV = (filename: string, headers: string[], rows: string[][]) => {
+    const SEP = ';';
+    const q = (v: string) => '"' + String(v ?? '').replace(/"/g, '""') + '"';
+    const csv = [headers, ...rows].map((r) => r.map(q).join(SEP)).join('\r\n');
+    // \uFEFF = BOM UTF-8: le dice a Excel que el archivo es UTF-8
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportCSV = () => {
+    try {
+      const ts = Date.now();
+      switch (activeTab) {
+        case 'loans': {
+          downloadCSV(`Prestamos_${ts}.csv`,
+            ['Fecha', 'Usuario', 'Email', 'Libro', 'Estado', 'Fecha devolucion'],
+            loansData.map((l) => [
+              l.created_at ? new Date(l.created_at).toLocaleDateString('es-CO') : '',
+              l.user?.name ?? '', l.user?.email ?? '', l.book?.title ?? '',
+              l.status === 'active' ? 'Activo' : l.status === 'overdue' ? 'Vencido' : 'Devuelto',
+              l.due_date ?? '',
+            ])
+          ); break;
+        }
+        case 'popular': {
+          downloadCSV(`LibrosSolicitados_${ts}.csv`,
+            ['#', 'Titulo', 'Autor', 'Categoria', 'Prestamos', 'Stock prestamo'],
+            popularBooks.map((b, i) => [
+              String(i + 1), b.title ?? '', b.author ?? '', b.category ?? '',
+              String(b.loans_count ?? 0), String(b.stock_loan ?? 0),
+            ])
+          ); break;
+        }
+        case 'mora': {
+          downloadCSV(`UsuariosMora_${ts}.csv`,
+            ['Usuario', 'Email', 'Libro', 'Vencio el', 'Dias vencido', 'Mora COP'],
+            moraUsers.map((u) => [
+              u.name ?? '', u.email ?? '', u.bookTitle ?? '', u.due_date ?? '',
+              String(u.daysOverdue ?? 0), String(u.mora_amount || 0),
+            ])
+          ); break;
+        }
+        case 'inventory': {
+          downloadCSV(`Inventario_${ts}.csv`,
+            ['Titulo', 'Autor', 'Categoria', 'ISBN', 'Stock prestamo', 'Stock venta', 'Precio venta', 'Activo'],
+            inventory.map((b) => [
+              b.title ?? '', b.author ?? '', b.category ?? '', b.isbn ?? '',
+              String(b.stock_loan ?? 0), String(b.stock_sale ?? 0),
+              b.sale_price ? String(Number(b.sale_price)) : '',
+              b.is_active ? 'Si' : 'No',
+            ])
+          ); break;
+        }
+        case 'revenue': {
+          downloadCSV(`Ventas_${ts}.csv`,
+            ['Fecha', 'Usuario', 'Email', 'Libro', 'Cantidad', 'Total COP', 'Estado'],
+            salesData.map((s) => [
+              s.sale_date ?? '', s.user?.name ?? '', s.user?.email ?? '', s.book?.title ?? '',
+              String(s.quantity ?? 1), String(s.total_amount || 0),
+              s.status === 'delivered' ? 'Entregado' : s.status === 'pending' ? 'Pendiente' : 'Cancelado',
+            ])
+          ); break;
+        }
+      }
+      toast.success('¡CSV descargado exitosamente!');
+    } catch (error) {
+      toast.error('Error al generar el CSV');
+      console.error(error);
+    }
+  };
+
   const handleExport = (format: 'csv' | 'pdf') => {
-    if (format === 'csv') { toast.info('Función CSV en desarrollo'); return; }
+    if (format === 'csv') { handleExportCSV(); return; }
     try {
       switch (activeTab) {
         case 'loans':    exportLoansToPDF(loansData, dateRange); break;
