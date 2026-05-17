@@ -5,7 +5,7 @@ import { AdminLayout } from './layouts/AdminLayout';
 
 import { UserDashboard } from './pages/user/UserDashboard';
 import { Catalog } from './pages/user/Catalog';
-import { LoanRequest } from './pages/user/LoanRequest';
+import { BookDetail } from './pages/user/BookDetail';
 import { MyLoans } from './pages/user/MyLoans';
 import { Reservations } from './pages/user/Reservations';
 import { MyPurchases } from './pages/user/MyPurchases';
@@ -22,17 +22,14 @@ import { Reports } from './pages/admin/Reports';
 import { UserManagement } from './pages/admin/UserManagement';
 
 export const router = createBrowserRouter([
-  {
-    path: '/',
-    element: <Login />,
-  },
+  { path: '/', element: <Login /> },
   {
     path: '/user',
     element: <UserLayout />,
     children: [
       { index: true, element: <UserDashboard /> },
       { path: 'catalog', element: <Catalog /> },
-      { path: 'loan-request/:bookId', element: <LoanRequest /> },
+      { path: 'book/:bookId', element: <BookDetail /> },
       { path: 'loans', element: <MyLoans /> },
       { path: 'reservations', element: <Reservations /> },
       { path: 'purchases', element: <MyPurchases /> },
@@ -54,8 +51,5 @@ export const router = createBrowserRouter([
       { path: 'users', element: <UserManagement /> },
     ],
   },
-  {
-    path: '*',
-    element: <Navigate to="/" replace />,
-  },
+  { path: '*', element: <Navigate to="/" replace /> },
 ]);

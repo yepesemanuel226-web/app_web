@@ -68,16 +68,7 @@ export function Login() {
       setLoading(false);
     }
   };
-
-  const useExampleCredentials = (type: 'admin' | 'user') => {
-    if (type === 'admin') {
-      setEmail('admin@edu.co');
-      setPassword('admin123');
-    } else {
-      setEmail('usuario@gmail.com');
-      setPassword('usuario123');
-    }
-  };
+;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#1A3A5C] to-[#0D5C63] flex items-center justify-center p-4">
@@ -146,49 +137,6 @@ export function Login() {
           </Button>
         </div>
 
-        <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <p className="text-sm font-semibold text-[#1A3A5C] mb-3 text-center">
-            Credenciales de prueba
-          </p>
-
-          <div className="space-y-3">
-            <div className="bg-white rounded-lg p-3 border border-blue-300">
-              <p className="text-xs font-semibold text-[#1A3A5C] mb-2">👤 Usuario (Lector)</p>
-              <div className="flex items-center justify-between text-xs mb-1">
-                <span className="text-gray-600">Email:</span>
-                <code className="bg-gray-100 px-2 py-1 rounded">usuario@gmail.com</code>
-              </div>
-              <div className="flex items-center justify-between text-xs mb-2">
-                <span className="text-gray-600">Contraseña:</span>
-                <code className="bg-gray-100 px-2 py-1 rounded">usuario123</code>
-              </div>
-              <button
-                onClick={() => useExampleCredentials('user')}
-                className="w-full text-xs bg-[#E8A020] text-white py-1.5 rounded hover:bg-[#d89418]"
-              >
-                Usar estas credenciales
-              </button>
-            </div>
-
-            <div className="bg-white rounded-lg p-3 border border-blue-300">
-              <p className="text-xs font-semibold text-[#1A3A5C] mb-2">🛠️ Administrador</p>
-              <div className="flex items-center justify-between text-xs mb-1">
-                <span className="text-gray-600">Email:</span>
-                <code className="bg-gray-100 px-2 py-1 rounded">admin@edu.co</code>
-              </div>
-              <div className="flex items-center justify-between text-xs mb-2">
-                <span className="text-gray-600">Contraseña:</span>
-                <code className="bg-gray-100 px-2 py-1 rounded">admin123</code>
-              </div>
-              <button
-                onClick={() => useExampleCredentials('admin')}
-                className="w-full text-xs bg-[#1A3A5C] text-white py-1.5 rounded hover:bg-[#2a4a6c]"
-              >
-                Usar estas credenciales
-              </button>
-            </div>
-          </div>
-        </div>
       </div>
 
       {showRegisterModal && (
