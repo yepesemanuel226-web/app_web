@@ -15,6 +15,7 @@ export function Catalog() {
   const [selectedBook, setSelectedBook] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'loan' | 'reserve' | 'buy'>('loan');
   const [quantity, setQuantity] = useState(1);
+  const [loanType, setLoanType] = useState<'express' | 'weekly' | 'monthly'>('weekly');
   const [showPurchaseForm, setShowPurchaseForm] = useState(false);
   const [books, setBooks] = useState<any[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
@@ -65,15 +66,16 @@ export function Catalog() {
       return;
     }
 
+    const loanDays = loanType === 'express' ? 1 : loanType === 'weekly' ? 7 : 30;
     const today = new Date().toISOString().split('T')[0];
     const due = new Date();
-    due.setDate(due.getDate() + 7);
+    due.setDate(due.getDate() + loanDays);
     const dueDate = due.toISOString().split('T')[0];
 
     const { error } = await supabase.from('loans').insert([{
       user_id: user.id,
       book_id: selectedBook.id,
-      loan_type: 'weekly',
+      loan_type: loanType,
       start_date: today,
       due_date: dueDate,
       status: 'active',
@@ -223,7 +225,15 @@ export function Catalog() {
           {filteredBooks.map((book) => (
             <Card key={book.id}
               className="hover:shadow-2xl hover:scale-105 transition-all duration-300 cursor-pointer group"
-              onClick={() => { setSelectedBook(book); setActiveTab('loan'); setQuantity(1); setShowPurchaseForm(false); }}>
+              onClick={() => {
+                setSelectedBook(book);
+                setActiveTab('loan');
+                setQuantity(1);
+                setShowPurchaseForm(false);
+                const allowed: string[] = book.allowed_loan_types ?? ['express', 'weekly', 'monthly'];
+                const defaultType = (['weekly', 'express', 'monthly'] as const).find(t => allowed.includes(t)) ?? 'weekly';
+                setLoanType(defaultType);
+              }}>
               <div className="aspect-[3/4] bg-gradient-to-br from-[#1A3A5C] to-[#0D5C63] rounded-lg mb-4 flex items-center justify-center overflow-hidden relative group-hover:shadow-lg">
                 <span className="text-white text-4xl opacity-30 group-hover:opacity-50 transition-all duration-300">📖</span>
                 <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-300 flex items-center justify-center">
@@ -247,7 +257,7 @@ export function Catalog() {
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-2xl z-10">
               <h2 className="text-2xl font-bold text-[#1A3A5C]">Detalles del libro</h2>
-              <button onClick={() => setSelectedBook(null)} className="text-gray-500 hover:text-gray-700 hover:bg-gray-100 p-2 rounded-full">
+              <button onClick={() => { setSelectedBook(null); setLoanType('weekly'); setActiveTab('loan'); }} className="text-gray-500 hover:text-gray-700 hover:bg-gray-100 p-2 rounded-full">
                 <X className="w-6 h-6" />
               </button>
             </div>
@@ -303,7 +313,33 @@ export function Catalog() {
                 {activeTab === 'loan' && (
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
                     <h4 className="font-bold text-[#1A3A5C] mb-3">Solicitar préstamo</h4>
-                    <p className="text-sm text-gray-700 mb-4">Se registrará un préstamo semanal (7 días). Recuerda que los retrasos generan mora de $2.000 por día.</p>
+                    <p className="text-sm text-gray-600 mb-4">Selecciona el tipo de préstamo. Recuerda que los retrasos generan mora de $2.000 por día.</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+                      {([
+                        { value: 'express', label: 'Diario', days: '1 día', icon: '⚡' },
+                        { value: 'weekly',  label: 'Semanal', days: '7 días', icon: '📅' },
+                        { value: 'monthly', label: 'Mensual', days: '30 días', icon: '🗓️' },
+                      ] as const)
+                        .filter(opt => {
+                          const allowed: string[] = selectedBook.allowed_loan_types ?? ['express', 'weekly', 'monthly'];
+                          return allowed.includes(opt.value);
+                        })
+                        .map(opt => (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => setLoanType(opt.value)}
+                            className={`flex flex-col items-center gap-1 p-4 rounded-xl border-2 font-medium transition-all
+                              ${loanType === opt.value
+                                ? 'border-[#1A3A5C] bg-[#1A3A5C] text-white shadow-md scale-105'
+                                : 'border-gray-200 bg-white text-gray-700 hover:border-[#1A3A5C] hover:text-[#1A3A5C]'}`}
+                          >
+                            <span className="text-2xl">{opt.icon}</span>
+                            <span className="font-bold">{opt.label}</span>
+                            <span className={`text-xs ${loanType === opt.value ? 'text-blue-200' : 'text-gray-400'}`}>{opt.days}</span>
+                          </button>
+                        ))}
+                    </div>
                     <Button onClick={handleLoanRequest} disabled={selectedBook.stock_loan <= 0 || submitting} variant="secondary" className="w-full md:w-auto">
                       {submitting ? 'Procesando...' : selectedBook.stock_loan > 0 ? 'Confirmar préstamo' : 'Sin stock disponible'}
                     </Button>

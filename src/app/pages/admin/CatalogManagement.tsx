@@ -7,7 +7,19 @@ import { supabase } from '../../../lib/supabase';
 
 const BOOKS_PER_PAGE = 10;
 
-const emptyBook = { title: '', author: '', isbn: '', category: '', description: '', publisher: '', publication_year: new Date().getFullYear(), pages: 0, language: 'Español', stock_loan: 0, stock_sale: 0, sale_price: 0, is_active: true };
+const emptyBook = {
+  title: '', author: '', isbn: '', category: '', description: '',
+  publisher: '', publication_year: new Date().getFullYear(), pages: 0,
+  language: 'Español', stock_loan: 0, stock_sale: 0, sale_price: 0,
+  is_active: true,
+  allowed_loan_types: ['express', 'weekly', 'monthly'] as string[],
+};
+
+const LOAN_TYPE_OPTIONS = [
+  { value: 'express', label: 'Diario',   desc: '1 día',    icon: '⚡' },
+  { value: 'weekly',  label: 'Semanal',  desc: '7 días',   icon: '📅' },
+  { value: 'monthly', label: 'Mensual',  desc: '30 días',  icon: '🗓️' },
+];
 
 export function CatalogManagement() {
   const [books, setBooks] = useState<any[]>([]);
@@ -18,11 +30,10 @@ export function CatalogManagement() {
   const [currentPage, setCurrentPage] = useState(1);
   const [showModal, setShowModal] = useState(false);
   const [editingBook, setEditingBook] = useState<any | null>(null);
-  const [form, setForm] = useState(emptyBook);
+  const [form, setForm] = useState<typeof emptyBook>(emptyBook);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => { fetchBooks(); fetchCategories(); }, []);
-
   useEffect(() => { setCurrentPage(1); }, [searchQuery, selectedCategory]);
 
   const fetchBooks = async () => {
@@ -33,10 +44,8 @@ export function CatalogManagement() {
 
   const fetchCategories = async () => {
     const { data } = await supabase
-      .from('books')
-      .select('category')
-      .not('category', 'is', null)
-      .neq('category', '');
+      .from('books').select('category')
+      .not('category', 'is', null).neq('category', '');
     if (data) {
       const unique = [...new Set(data.map(b => b.category))].sort();
       setCategories(unique);
@@ -75,10 +84,36 @@ export function CatalogManagement() {
   };
 
   const openAdd = () => { setForm(emptyBook); setEditingBook(null); setShowModal(true); };
-  const openEdit = (book: any) => { setForm({ ...book }); setEditingBook(book); setShowModal(true); };
+  const openEdit = (book: any) => {
+    setForm({
+      ...book,
+      allowed_loan_types: book.allowed_loan_types ?? ['express', 'weekly', 'monthly'],
+    });
+    setEditingBook(book);
+    setShowModal(true);
+  };
+
+  const toggleLoanType = (type: string) => {
+    setForm(prev => {
+      const current: string[] = prev.allowed_loan_types || [];
+      if (current.includes(type)) {
+        // Prevent deselecting all — at least one must remain
+        if (current.length === 1) {
+          toast.error('Debe haber al menos un tipo de préstamo habilitado');
+          return prev;
+        }
+        return { ...prev, allowed_loan_types: current.filter(t => t !== type) };
+      }
+      return { ...prev, allowed_loan_types: [...current, type] };
+    });
+  };
 
   const handleSave = async () => {
     if (!form.title || !form.author) { toast.error('Título y autor son obligatorios'); return; }
+    if (!form.allowed_loan_types || form.allowed_loan_types.length === 0) {
+      toast.error('Selecciona al menos un tipo de préstamo');
+      return;
+    }
     setSaving(true);
 
     if (editingBook) {
@@ -106,6 +141,19 @@ export function CatalogManagement() {
 
   const f = (key: string, val: any) => setForm(prev => ({ ...prev, [key]: val }));
 
+  const loanTypeBadge = (types: string[] | null) => {
+    if (!types || types.length === 0) return <span className="text-gray-400 text-xs">—</span>;
+    return (
+      <div className="flex gap-1 flex-wrap">
+        {LOAN_TYPE_OPTIONS.filter(o => types.includes(o.value)).map(o => (
+          <span key={o.value} className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
+            {o.icon} {o.label}
+          </span>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-start">
@@ -130,18 +178,14 @@ export function CatalogManagement() {
               onChange={e => setSearchQuery(e.target.value)}
             />
           </div>
-
           <select
             value={selectedCategory}
             onChange={e => setSelectedCategory(e.target.value)}
             className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#E8A020] text-gray-700"
           >
             <option value="">Todas las categorías</option>
-            {categories.map(cat => (
-              <option key={cat} value={cat}>{cat}</option>
-            ))}
+            {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
           </select>
-
           {(searchQuery || selectedCategory) && (
             <button
               onClick={() => { setSearchQuery(''); setSelectedCategory(''); }}
@@ -162,13 +206,14 @@ export function CatalogManagement() {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-gray-200 text-left">
-                    <th className="py-3 px-4 font-semibold text-[#1A3A5C]">Título</th>
+                  <tr className="border-b border-gray-200 text-left text-sm">
+                    <th className="py-3 px-4 font-semibold text-[#1A3A5C]">Libro</th>
                     <th className="py-3 px-4 font-semibold text-[#1A3A5C]">Autor</th>
                     <th className="py-3 px-4 font-semibold text-[#1A3A5C]">Categoría</th>
                     <th className="py-3 px-4 font-semibold text-[#1A3A5C]">Stock préstamo</th>
                     <th className="py-3 px-4 font-semibold text-[#1A3A5C]">Stock venta</th>
                     <th className="py-3 px-4 font-semibold text-[#1A3A5C]">Precio</th>
+                    <th className="py-3 px-4 font-semibold text-[#1A3A5C]">Tipos préstamo</th>
                     <th className="py-3 px-4 font-semibold text-[#1A3A5C]">Estado</th>
                     <th className="py-3 px-4 font-semibold text-[#1A3A5C]">Acciones</th>
                   </tr>
@@ -193,6 +238,7 @@ export function CatalogManagement() {
                       <td className="py-3 px-4">
                         {book.sale_price ? <span className="text-[#E8A020] font-semibold">${book.sale_price?.toLocaleString('es-CO')}</span> : <span className="text-gray-400">N/A</span>}
                       </td>
+                      <td className="py-3 px-4">{loanTypeBadge(book.allowed_loan_types)}</td>
                       <td className="py-3 px-4">
                         <Badge variant={book.is_active ? 'success' : 'danger'}>{book.is_active ? 'Activo' : 'Inactivo'}</Badge>
                       </td>
@@ -211,40 +257,24 @@ export function CatalogManagement() {
 
             {totalPages > 1 && (
               <div className="flex items-center justify-center gap-1 mt-6">
-                <button
-                  onClick={() => goToPage(Math.max(1, currentPage - 1))}
-                  disabled={currentPage === 1}
-                  className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed text-[#1A3A5C]"
-                >
+                <button onClick={() => goToPage(Math.max(1, currentPage - 1))} disabled={currentPage === 1}
+                  className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed text-[#1A3A5C]">
                   <ChevronLeft className="w-5 h-5" />
                 </button>
-
                 {getPageNumbers().map((page, i) => (
                   page === '...'
                     ? <span key={`dots-${i}`} className="px-2 text-gray-400">...</span>
-                    : <button
-                        key={page}
-                        onClick={() => goToPage(page as number)}
-                        className={`w-9 h-9 rounded-lg text-sm font-medium transition-colors ${
-                          currentPage === page
-                            ? 'bg-[#1A3A5C] text-white'
-                            : 'hover:bg-gray-100 text-gray-700'
-                        }`}
-                      >
+                    : <button key={page} onClick={() => goToPage(page as number)}
+                        className={`w-9 h-9 rounded-lg text-sm font-medium transition-colors ${currentPage === page ? 'bg-[#1A3A5C] text-white' : 'hover:bg-gray-100 text-gray-700'}`}>
                         {page}
                       </button>
                 ))}
-
-                <button
-                  onClick={() => goToPage(Math.min(totalPages, currentPage + 1))}
-                  disabled={currentPage === totalPages}
-                  className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed text-[#1A3A5C]"
-                >
+                <button onClick={() => goToPage(Math.min(totalPages, currentPage + 1))} disabled={currentPage === totalPages}
+                  className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed text-[#1A3A5C]">
                   <ChevronRight className="w-5 h-5" />
                 </button>
               </div>
             )}
-
             {totalPages > 1 && (
               <p className="text-center text-xs text-gray-400 mt-2">
                 Página {currentPage} de {totalPages} · {filtered.length} libros en total
@@ -261,24 +291,29 @@ export function CatalogManagement() {
               <h2 className="text-xl font-bold text-[#1A3A5C]">{editingBook ? 'Editar libro' : 'Agregar libro'}</h2>
               <button onClick={() => setShowModal(false)}><X className="w-5 h-5 text-gray-500" /></button>
             </div>
+
             <div className="p-6 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {[
-                  { label: 'Título *', key: 'title', type: 'text' },
-                  { label: 'Autor *', key: 'author', type: 'text' },
-                  { label: 'ISBN', key: 'isbn', type: 'text' },
-                  { label: 'Editorial', key: 'publisher', type: 'text' },
+                  { label: 'Título *',        key: 'title',            type: 'text'   },
+                  { label: 'Autor *',         key: 'author',           type: 'text'   },
+                  { label: 'ISBN',            key: 'isbn',             type: 'text'   },
+                  { label: 'Editorial',       key: 'publisher',        type: 'text'   },
                   { label: 'Año publicación', key: 'publication_year', type: 'number' },
-                  { label: 'Páginas', key: 'pages', type: 'number' },
-                  { label: 'Idioma', key: 'language', type: 'text' },
-                  { label: 'Stock préstamo', key: 'stock_loan', type: 'number' },
-                  { label: 'Stock venta', key: 'stock_sale', type: 'number' },
-                  { label: 'Precio venta', key: 'sale_price', type: 'number' },
+                  { label: 'Páginas',         key: 'pages',            type: 'number' },
+                  { label: 'Idioma',          key: 'language',         type: 'text'   },
+                  { label: 'Stock préstamo',  key: 'stock_loan',       type: 'number' },
+                  { label: 'Stock venta',     key: 'stock_sale',       type: 'number' },
+                  { label: 'Precio venta',    key: 'sale_price',       type: 'number' },
                 ].map(({ label, key, type }) => (
                   <div key={key}>
                     <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
-                    <input type={type} value={(form as any)[key] || ''} onChange={e => f(key, type === 'number' ? Number(e.target.value) : e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#E8A020]" />
+                    <input
+                      type={type}
+                      value={(form as any)[key] || ''}
+                      onChange={e => f(key, type === 'number' ? Number(e.target.value) : e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#E8A020]"
+                    />
                   </div>
                 ))}
 
@@ -308,18 +343,54 @@ export function CatalogManagement() {
                 </div>
               </div>
 
+              {/* ── Tipos de préstamo permitidos ── */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Tipos de préstamo permitidos <span className="text-red-500">*</span>
+                </label>
+                <p className="text-xs text-gray-500 mb-3">Selecciona los tipos de préstamo que se pueden solicitar para este libro.</p>
+                <div className="grid grid-cols-3 gap-3">
+                  {LOAN_TYPE_OPTIONS.map(opt => {
+                    const active = (form.allowed_loan_types || []).includes(opt.value);
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => toggleLoanType(opt.value)}
+                        className={`flex flex-col items-center gap-1 p-4 rounded-xl border-2 font-medium transition-all select-none
+                          ${active
+                            ? 'border-[#1A3A5C] bg-[#1A3A5C] text-white shadow-md'
+                            : 'border-gray-200 bg-white text-gray-500 hover:border-gray-400'
+                          }`}
+                      >
+                        <span className="text-2xl">{opt.icon}</span>
+                        <span className="font-bold text-sm">{opt.label}</span>
+                        <span className={`text-xs ${active ? 'text-blue-200' : 'text-gray-400'}`}>{opt.desc}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
-                <textarea rows={3} value={form.description} onChange={e => f('description', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#E8A020]" />
+                <textarea
+                  rows={3}
+                  value={form.description}
+                  onChange={e => f('description', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#E8A020]"
+                />
               </div>
+
               <div className="flex items-center gap-2">
                 <input type="checkbox" id="is_active" checked={form.is_active} onChange={e => f('is_active', e.target.checked)} />
                 <label htmlFor="is_active" className="text-sm font-medium text-gray-700">Libro activo</label>
               </div>
+
               <div className="flex gap-3 pt-4">
                 <button onClick={() => setShowModal(false)} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-50">Cancelar</button>
-                <button onClick={handleSave} disabled={saving} className="flex-1 bg-[#E8A020] text-white py-2 rounded-lg hover:bg-[#d4911c] disabled:opacity-50 flex items-center justify-center gap-2">
+                <button onClick={handleSave} disabled={saving}
+                  className="flex-1 bg-[#E8A020] text-white py-2 rounded-lg hover:bg-[#d4911c] disabled:opacity-50 flex items-center justify-center gap-2">
                   <Save className="w-4 h-4" />{saving ? 'Guardando...' : (editingBook ? 'Actualizar' : 'Agregar')}
                 </button>
               </div>
