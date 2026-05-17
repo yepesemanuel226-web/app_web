@@ -177,7 +177,7 @@ export function AdminLayout() {
 
         <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
           <SupabaseBanner />
-          <div className={`${!import.meta.env.VITE_SUPABASE_URL ? 'mt-4' : ''}`}>
+          <div>
             <Outlet />
           </div>
         </main>
