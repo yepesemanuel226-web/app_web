@@ -16,6 +16,7 @@ export function Catalog() {
   const [activeTab, setActiveTab] = useState<'loan' | 'reserve' | 'buy'>('loan');
   const [quantity, setQuantity] = useState(1);
   const [loanType, setLoanType] = useState<'express' | 'weekly' | 'monthly'>('weekly');
+  const [userMoraInfo, setUserMoraInfo] = useState<{ count: number; total: number } | null>(null);
   const [showPurchaseForm, setShowPurchaseForm] = useState(false);
   const [books, setBooks] = useState<any[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
@@ -42,6 +43,22 @@ export function Catalog() {
     setLoading(false);
   };
 
+  const fetchUserMora = async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from('loans')
+      .select('mora_amount')
+      .eq('user_id', user.id)
+      .eq('status', 'overdue')
+      .eq('mora_paid', false);
+    if (data && data.length > 0) {
+      const total = data.reduce((sum: number, l: any) => sum + (l.mora_amount || 0), 0);
+      setUserMoraInfo({ count: data.length, total });
+    } else {
+      setUserMoraInfo(null);
+    }
+  };
+
   const filteredBooks = books.filter(book => {
     const matchSearch = !searchQuery ||
       book.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -62,6 +79,24 @@ export function Catalog() {
 
     if (selectedBook.stock_loan <= 0) {
       toast.error('Este libro no tiene stock para préstamo');
+      setSubmitting(false);
+      return;
+    }
+
+    // Verificar si el usuario tiene préstamos vencidos con mora sin pagar
+    const { data: overdueLoans } = await supabase
+      .from('loans')
+      .select('id, mora_amount, book:books(title)')
+      .eq('user_id', user.id)
+      .eq('status', 'overdue')
+      .eq('mora_paid', false);
+
+    if (overdueLoans && overdueLoans.length > 0) {
+      const totalMora = overdueLoans.reduce((sum: number, l: any) => sum + (l.mora_amount || 0), 0);
+      toast.error(
+        `No puedes solicitar préstamos con mora activa. Tienes ${overdueLoans.length} préstamo(s) vencido(s) y una mora de $${totalMora.toLocaleString('es-CO')}. Dirígete a la biblioteca para regularizar tu situación.`,
+        { duration: 6000 }
+      );
       setSubmitting(false);
       return;
     }
@@ -233,6 +268,7 @@ export function Catalog() {
                 const allowed: string[] = book.allowed_loan_types ?? ['express', 'weekly', 'monthly'];
                 const defaultType = (['weekly', 'express', 'monthly'] as const).find(t => allowed.includes(t)) ?? 'weekly';
                 setLoanType(defaultType);
+                fetchUserMora();
               }}>
               <div className="aspect-[3/4] bg-gradient-to-br from-[#1A3A5C] to-[#0D5C63] rounded-lg mb-4 flex items-center justify-center overflow-hidden relative group-hover:shadow-lg">
                 <span className="text-white text-4xl opacity-30 group-hover:opacity-50 transition-all duration-300">📖</span>
@@ -314,6 +350,19 @@ export function Catalog() {
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
                     <h4 className="font-bold text-[#1A3A5C] mb-3">Solicitar préstamo</h4>
                     <p className="text-sm text-gray-600 mb-4">Selecciona el tipo de préstamo. Recuerda que los retrasos generan mora de $2.000 por día.</p>
+                    {userMoraInfo && (
+                      <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                        <span className="text-red-500 text-xl mt-0.5">⚠️</span>
+                        <div>
+                          <p className="font-bold text-red-700 text-sm">No puedes solicitar préstamos</p>
+                          <p className="text-red-600 text-sm mt-1">
+                            Tienes <strong>{userMoraInfo.count}</strong> préstamo(s) vencido(s) con una mora de{' '}
+                            <strong>${userMoraInfo.total.toLocaleString('es-CO')}</strong>.
+                            Dirígete a la biblioteca para regularizar tu situación.
+                          </p>
+                        </div>
+                      </div>
+                    )}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
                       {([
                         { value: 'express', label: 'Diario', days: '1 día', icon: '⚡' },
@@ -340,7 +389,7 @@ export function Catalog() {
                           </button>
                         ))}
                     </div>
-                    <Button onClick={handleLoanRequest} disabled={selectedBook.stock_loan <= 0 || submitting} variant="secondary" className="w-full md:w-auto">
+                    <Button onClick={handleLoanRequest} disabled={selectedBook.stock_loan <= 0 || submitting || !!userMoraInfo} variant="secondary" className="w-full md:w-auto">
                       {submitting ? 'Procesando...' : selectedBook.stock_loan > 0 ? 'Confirmar préstamo' : 'Sin stock disponible'}
                     </Button>
                   </div>
